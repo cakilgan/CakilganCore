@@ -67,7 +67,18 @@ namespace Utils::TokenUtils
             __m128i is_digit = is_between('0', '9', c);
             __m128i is_upper = is_between('A', 'Z', c);
             __m128i is_lower = is_between('a', 'z', c);
+            
+
+            __m128i p0 = is_between('!', '/', c);
+            __m128i p1 = is_between(':', '?', c);
+            __m128i p2 = is_between('[', '`', c);
+            __m128i p3 = is_between('{', '~', c);
+
+            __m128i is_punctuation = _mm_or_si128(p0, _mm_or_si128(p1, _mm_or_si128(p2, p3)));
+
+
             __m128i is_alpha = _mm_or_si128(is_upper, is_lower);
+            
         
             __m128i is_space = _mm_or_si128(
                 _mm_cmpeq_epi8(c, _mm_set1_epi8(' ')),
@@ -80,6 +91,7 @@ namespace Utils::TokenUtils
             int digit_mask = _mm_movemask_epi8(is_digit);
             int space_mask = _mm_movemask_epi8(is_space);
             int newline_mask = _mm_movemask_epi8(is_newline);
+            int punctuation_mask = _mm_movemask_epi8(is_punctuation);
         
             for (int i = 0; i < 16; ++i) {
                 TokenType t;
@@ -87,6 +99,7 @@ namespace Utils::TokenUtils
                 else if ((alpha_mask >> i) & 1) t = TokenType::ALPHABETIC;
                 else if ((space_mask >> i) & 1) t = TokenType::WHITESPACE;
                 else if ((newline_mask >> i) & 1) t = TokenType::NEWLINE;
+                else if ((punctuation_mask >> i) & 1) t = TokenType::PUNCTUATION;
                 else t = TokenType::UNKNOWN;
         
                 out[i] = Token(t, ptr[i]);
