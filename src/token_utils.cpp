@@ -1,4 +1,7 @@
+#include <cstring>
+#include <map>
 #include <token_utils.h>
+#include <math_utils.h>
 
 namespace Utils::TokenUtils
 {
@@ -125,6 +128,242 @@ namespace Utils::TokenUtils
             }
             
             return tokens;
+        }
+
+
+
+        bool isAllNum(const std::vector<Utils::TokenUtils::Token>& tokens) {
+            for (const auto& token : tokens) {
+                if (token.tokenType != Utils::TokenUtils::TokenType::NUMERIC) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        bool isAllAlpha(const std::vector<Utils::TokenUtils::Token>& tokens) {
+            for (const auto& token : tokens) {
+                if (token.tokenType != Utils::TokenUtils::TokenType::ALPHABETIC) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        std::vector<WordToken> spaceAndPunctuationWordTokenize(std::vector<Token> tokens){
+            std::vector<WordToken> words;
+            std::vector<Utils::TokenUtils::Token> current;
+            int currentToken = 0;
+            for (auto& token : tokens) {
+                if(token.tokenType==Utils::TokenUtils::TokenType::WHITESPACE||token.tokenType==Utils::TokenUtils::TokenType::PUNCTUATION){
+                    if(!current.empty()){
+                        if(isAllNum(current)){
+                            words.push_back(Utils::TokenUtils::WordToken(current,{"ALL_NUMBER"}));
+                        }
+                        else if(isAllAlpha(current)){
+                            words.push_back(Utils::TokenUtils::WordToken(current,{"ALL_ALPHA"}));
+                        }
+                        else{
+                            words.push_back(Utils::TokenUtils::WordToken(current));
+                        }
+                    }
+                    current.clear();
+        
+                    current.push_back(token);
+                    if(!current.empty()){
+                        if(current.size()==1){
+                            if(current[0].literalValue=='+'||current[0].literalValue=='-'||current[0].literalValue=='*'||current[0].literalValue=='/'||current[0].literalValue=='%'){
+                                words.push_back(Utils::TokenUtils::WordToken(current,{"OPERATOR"}));
+                            }else{
+                            words.push_back(Utils::TokenUtils::WordToken(current));
+                            }
+                        }else{
+                            words.push_back(Utils::TokenUtils::WordToken(current));
+                        }
+                        
+                    }
+                    current.clear();
+        
+                }else if(currentToken==tokens.size()-1){
+                    current.push_back(token);
+                    if(!current.empty()){
+                        words.push_back(Utils::TokenUtils::WordToken(current));
+                    }
+                    current.clear();
+                }
+                else{
+                    current.push_back(token);
+                }
+                currentToken++;
+            }
+
+            return words;
+        }
+        struct Node {
+            std::vector<Utils::TokenUtils::WordToken> words;
+            std::string value;
+            Node* left = nullptr;
+            Node* right = nullptr;
+            Node(const std::string& v) {
+                value = v;
+            }
+        };
+        int lastGlobalOperator(std::vector<Utils::TokenUtils::WordToken>& words,std::string& opresult){
+            std::vector<int> locations;
+            std::map<int, std::string> ops;
+            int pars= 0;
+            for(int i=0;i<words.size();i++){
+                Utils::TokenUtils::WordToken word = words[i];
+                if(word.toString()=="(") pars++;
+                if(word.toString()==")") pars--;
+        
+                if(pars==0){
+                    if(word.toString()=="+"){
+                        locations.push_back(i);
+                        ops[i] = "+";
+                    }
+                    if(word.toString()=="-"){
+                        locations.push_back(i);
+                        ops[i] = "-";
+                    }
+                }
+            }
+            if(locations.empty()){
+                for(int i=0;i<words.size();i++){
+                    Utils::TokenUtils::WordToken word = words[i];
+                    if(word.toString()=="(") pars++;
+                    if(word.toString()==")") pars--;
+            
+                    if(pars==0){
+                        if(word.toString()=="*"){
+                            locations.push_back(i);
+                            ops[i] = "*";
+                        }
+                        if(word.toString()=="/"){
+                            locations.push_back(i);
+                            ops[i] = "/";
+                        }
+                        if(word.toString()=="%"){
+                            locations.push_back(i);
+                            ops[i] = "%";
+                        }
+                    }
+                }
+            }
+            if(!locations.empty()){
+                opresult = ops[locations.back()];
+                return locations.back();
+            }
+            else return -1;
+        }
+        void splitWithOperator(int lastGlobalOperator,std::vector<Utils::TokenUtils::WordToken>& words,std::vector<Utils::TokenUtils::WordToken>& left,std::vector<Utils::TokenUtils::WordToken>& right){
+            left = std::vector<Utils::TokenUtils::WordToken>(words.begin(),words.begin()+lastGlobalOperator);
+            right = std::vector<Utils::TokenUtils::WordToken>(words.begin()+lastGlobalOperator+1,words.end());
+        }
+        
+        
+        // NOTE:: __look
+        bool removeReduntantPars(std::vector<Utils::TokenUtils::WordToken>& words) {
+            while (true) {
+                if (words.size() < 2 || words.front().toString() != "(" || words.back().toString() != ")")
+                    return false;
+        
+                int depth = 0;
+                bool valid = true;
+        
+                for (size_t i = 0; i < words.size(); ++i) {
+                    std::string val = words[i].toString();
+        
+                    if (val == "(") depth++;
+                    else if (val == ")") depth--;
+        
+                    if (depth == 0 && i != words.size() - 1) {
+                        valid = false;
+                        break;
+                    }
+                }
+        
+                if (valid) {
+                    words = std::vector<Utils::TokenUtils::WordToken>(words.begin() + 1, words.end() - 1);
+                } else {
+                    return false;
+                }
+            }
+        }
+        
+        
+        Node* parse(std::vector<Utils::TokenUtils::WordToken>& words){
+            bool isRemovedSomething = removeReduntantPars(words);
+            
+            std::string op;
+            int lastGlobalOperatorV = lastGlobalOperator(words,op);
+        
+        
+            std::vector<Utils::TokenUtils::WordToken> left,right;
+            if(lastGlobalOperatorV==-1){
+                if(isRemovedSomething){
+                    parse(words);
+                }
+                Node* n =  new Node(Utils::StringUtils::vec_to_str(words,""));
+                n->words = words;
+                return n;
+            }else{
+                splitWithOperator(lastGlobalOperatorV,words,left,right);
+                
+                Node* rtrn = new Node(op);
+                rtrn->left = parse(left);
+                rtrn->right = parse(right);
+                
+                return rtrn;
+            }
+        }
+        
+        void trim(std::string& trimit){
+            for(int i=0;i<trimit.size();i++){
+                if(trimit[i]==' '){
+                    trimit.erase(trimit.begin()+i);
+                    i--;
+                }
+            }
+        }
+
+        // ! using trigonometric funcs with radian values
+        float evaulate(Node* start){
+            
+            if(!start->left&&!start->right){
+                if(start->value._Starts_with("sin")){
+                    std::vector<Utils::TokenUtils::WordToken> temp (start->words.begin()+1,start->words.end());
+                    float val = evaulate(parse(temp));
+                    return sin(Utils::MathUtils::degtorad(val));
+                }
+                if(start->value._Starts_with("cos")){
+                    std::vector<Utils::TokenUtils::WordToken> temp (start->words.begin()+1,start->words.end());
+                    float val = evaulate(parse(temp));
+                    return cos(Utils::MathUtils::degtorad(val));
+                }
+                if(start->value._Starts_with("tan")){
+                    std::vector<Utils::TokenUtils::WordToken> temp (start->words.begin()+1,start->words.end());
+                    float val = evaulate(parse(temp));
+                    return tan(Utils::MathUtils::degtorad(val));
+                }
+                if(start->value._Starts_with("log")){
+                    std::vector<Utils::TokenUtils::WordToken> temp (start->words.begin()+1,start->words.end());
+                    float val = evaulate(parse(temp));
+                    return log10(val);
+                }
+                float val = stof(start->value);
+                return val;
+            }
+        
+            float left = evaulate(start->left);
+            float right = evaulate(start->right);
+            if(start->value=="+") return left+right;
+            if(start->value=="-") return left-right;
+            if(start->value=="*") return left*right;
+            if(start->value=="/") return left/right;
+            if(start->value=="%") return (int)left%(int)right;
+            throw std::exception("invalid operator!");
+        }
+        float basicParseAndEvaulateMathExpression(std::vector<WordToken> tokenizedText){
+            return evaulate(parse(tokenizedText));
         }
     }
 }

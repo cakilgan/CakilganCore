@@ -19,7 +19,8 @@ namespace Utils::StringUtils{
             for (const auto& e : vec) {
                 oss << e.toString() << separator;
             }
-        } else {
+        }
+        else {
             for (const auto& e : vec) {
                 oss << e << separator;
             }
@@ -29,6 +30,14 @@ namespace Utils::StringUtils{
     }
     inline void surround(std::string& str, const std::string& begin, const std::string& end) {
         str = begin + str + end;
+    }
+    inline void trim(std::string& trimit){
+        for(int i=0;i<trimit.size();i++){
+            if(trimit[i]==' '){
+                trimit.erase(trimit.begin()+i);
+                i--;
+            }
+        }
     }
 }
 #define SURROUND(str, prefix, suffix) std::string(prefix) + str + std::string(suffix)
